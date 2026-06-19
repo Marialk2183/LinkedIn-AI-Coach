@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+backend/.venv/
+backend/*.db
+backend/.env
+
+# ML artifacts (reproducible: `python -m ml.train`)
+backend/ml/model.pkl
+
+# Node / frontend
+node_modules/
+frontend/dist/
+frontend/.env
+frontend/.tsnode/
+*.tsbuildinfo
+*.local
+
+# Editor / OS
+.vscode/*
+.idea
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
