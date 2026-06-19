@@ -2,9 +2,10 @@
 
 from functools import lru_cache
 from pathlib import Path
+from typing import Annotated
 
 from pydantic import Field, field_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 BASE_DIR = Path(__file__).resolve().parent
 
@@ -21,7 +22,7 @@ class Settings(BaseSettings):
 
     # AI (Gemini)
     gemini_api_key: str | None = Field(default=None, alias="GEMINI_API_KEY")
-    gemini_model: str = Field(default="gemini-1.5-flash", alias="GEMINI_MODEL")
+    gemini_model: str = Field(default="gemini-flash-latest", alias="GEMINI_MODEL")
 
     # Database
     database_url: str = Field(
@@ -31,8 +32,9 @@ class Settings(BaseSettings):
     # ML
     ml_model_path: str = Field(default="ml/model.pkl", alias="ML_MODEL_PATH")
 
-    # CORS
-    cors_origins: list[str] = Field(
+    # CORS — NoDecode so a comma-separated env value isn't JSON-parsed; the
+    # validator below splits it into a list.
+    cors_origins: Annotated[list[str], NoDecode] = Field(
         default=["http://localhost:5173", "http://127.0.0.1:5173"],
         alias="CORS_ORIGINS",
     )

@@ -58,6 +58,37 @@ npm run dev
 Open `http://localhost:5173`, go to **Analyze**, paste a profile (or click
 "Load a sample profile"), and view the dashboard.
 
+## Deploy (single service, no Docker)
+
+In production the FastAPI backend **also serves the built React app**, so it's one
+deployable service on one port. When `frontend/dist/` exists, `/` serves the app and
+`/api/v1/*`, `/health`, `/docs` serve the API; otherwise `/` returns JSON (dev mode).
+
+**Build, then start:**
+
+```bash
+bash build.sh                                   # installs deps, trains model, builds frontend
+cd backend && uvicorn main:app --host 0.0.0.0 --port $PORT
+```
+
+`build.sh` requires Python **and** Node on the host. The model (`ml/model.pkl`) and the
+frontend build (`frontend/dist/`) are generated here — both are git-ignored.
+
+**On a PaaS (Render / Railway / etc.):**
+
+| Setting | Value |
+| --- | --- |
+| Build command | `bash build.sh` |
+| Start command | `cd backend && uvicorn main:app --host 0.0.0.0 --port $PORT` (or use the `Procfile`) |
+| Env vars | `GEMINI_API_KEY` (optional), `GEMINI_MODEL=gemini-flash-latest` |
+
+Same-origin requests mean **no CORS config needed**. If you instead host the frontend
+separately, set `frontend/.env.production` → `VITE_API_BASE=https://<backend>/api/v1`
+and add that frontend origin to `CORS_ORIGINS` on the backend.
+
+> Note: the default DB is SQLite (file-based) — fine for a demo, but on hosts with an
+> ephemeral filesystem the data resets on restart. Point `DATABASE_URL` at Postgres to persist.
+
 ## Architecture
 
 Clean, layered, dependency-injected. The dependency rule points inward:

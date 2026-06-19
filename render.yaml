@@ -1,0 +1,17 @@
+# Render Blueprint — single web service (no Docker).
+# The frontend is prebuilt and committed (frontend/dist/); the host only needs
+# Python: it installs deps, trains the ML model, then serves API + app on one port.
+services:
+  - type: web
+    name: linkedin-ai-coach
+    runtime: python
+    plan: free
+    buildCommand: "pip install -r backend/requirements.txt && cd backend && python -m ml.train"
+    startCommand: "cd backend && uvicorn main:app --host 0.0.0.0 --port $PORT"
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.11.9"
+      - key: GEMINI_MODEL
+        value: "gemini-flash-latest"
+      - key: GEMINI_API_KEY
+        sync: false   # set this in the Render dashboard (kept secret)

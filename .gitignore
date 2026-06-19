@@ -11,7 +11,8 @@ backend/ml/model.pkl
 
 # Node / frontend
 node_modules/
-frontend/dist/
+# NOTE: frontend/dist/ is committed on purpose — the Python deploy host has no
+# Node, so it serves this prebuilt bundle. Rebuild + recommit after frontend edits.
 frontend/.env
 frontend/.tsnode/
 *.tsbuildinfo
