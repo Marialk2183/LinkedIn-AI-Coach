@@ -9,6 +9,8 @@ export interface Scores {
   recruiter: number
   networking: number
   career_readiness: number
+  ats: number
+  leadership: number
 }
 
 export interface MetricBreakdown {
@@ -65,4 +67,15 @@ export interface AnalyzeRequest {
   source_type: SourceType
   profile_url?: string
   profile_text?: string
+}
+
+export type FetchKind = 'github' | 'web'
+
+export interface FetchResponse {
+  url: string
+  kind: FetchKind
+  title: string
+  text: string
+  char_count: number
+  metadata: Record<string, string | number>
 }

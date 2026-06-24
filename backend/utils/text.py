@@ -97,3 +97,24 @@ def count_action_verbs(text: str) -> int:
         return 0
     words = set(re.findall(r"[a-zA-Z]+", text.lower()))
     return len(words & ACTION_VERBS)
+
+
+def count_keyword_hits(text: str, keywords: set[str]) -> int:
+    """Count how many distinct keywords appear in text.
+
+    Single-word keywords match on word boundaries (so "lead" hits "Lead" but not
+    "leadership"); multi-word phrases match as substrings. Generic helper reused
+    by the ATS and Leadership scorers.
+    """
+    if not text:
+        return 0
+    lowered = text.lower()
+    words = set(re.findall(r"[a-z]+", lowered))
+    hits = 0
+    for kw in keywords:
+        if " " in kw:
+            if kw in lowered:
+                hits += 1
+        elif kw in words:
+            hits += 1
+    return hits

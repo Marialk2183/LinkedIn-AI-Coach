@@ -9,6 +9,9 @@ backend/.env
 # ML artifacts (reproducible: `python -m ml.train`)
 backend/ml/model.pkl
 
+# Generated artifacts (cached PDF reports) — local ArtifactStore fallback
+backend/var/
+
 # Node / frontend
 node_modules/
 # NOTE: frontend/dist/ is committed on purpose — the Python deploy host has no

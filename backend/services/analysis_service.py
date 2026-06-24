@@ -110,6 +110,8 @@ class AnalysisService:
                 recruiter=scores.recruiter,
                 networking=scores.networking,
                 career_readiness=scores.career_readiness,
+                ats=scores.ats,
+                leadership=scores.leadership,
             ),
             breakdown=self._breakdown(scores),
             ml_used=scores.ml_used,

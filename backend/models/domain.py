@@ -59,7 +59,11 @@ class ParsedProfile:
 
 @dataclass
 class ScoreResult:
-    """The six headline scores plus a transparent per-metric breakdown."""
+    """The headline scores plus a transparent per-metric breakdown.
+
+    ATS and Leadership are additional, deterministic lenses over signals that
+    already feed the other dimensions; they're surfaced and explained but do not
+    change ``overall`` (whose rule/ML blend stays calibrated as before)."""
 
     overall: int
     completeness: int
@@ -67,6 +71,8 @@ class ScoreResult:
     recruiter: int
     networking: int
     career_readiness: int
+    ats: int = 0
+    leadership: int = 0
     breakdown: dict[str, dict[str, float]] = field(default_factory=dict)
     ml_used: bool = False
 
@@ -85,3 +91,19 @@ class CareerMatch:
     match_pct: float
     matched_skills: list[str] = field(default_factory=list)
     missing_skills: list[str] = field(default_factory=list)
+
+
+@dataclass
+class FetchedSource:
+    """Text pulled from a *compliant* external source (never LinkedIn).
+
+    Produced by ``services.scrape_service`` from GitHub's official API, a
+    portfolio site, or a job posting. ``text`` is normalized profile-style text
+    ready to flow into the same parse → score pipeline as a paste, so the rest
+    of the app is unchanged."""
+
+    url: str
+    kind: str  # github | web
+    title: str
+    text: str
+    metadata: dict[str, str | int | float] = field(default_factory=dict)

@@ -1,9 +1,11 @@
+import { useState } from 'react'
 import { useLocation, useNavigate, Link } from 'react-router-dom'
 import {
   ArrowLeft, ClipboardCheck, Cpu, UserSearch, Users, Briefcase, BadgeCheck,
-  Download, FileJson, Printer,
+  Download, FileJson, Printer, FileText, Loader2, ScanSearch, Crown,
 } from 'lucide-react'
 import type { AnalysisResponse } from '../types/analysis'
+import { apiErrorMessage } from '../api/client'
 import ScoreGauge from '../components/ScoreGauge'
 import ScoreCard from '../components/ScoreCard'
 import ScoreRadar from '../components/ScoreRadar'
@@ -11,12 +13,27 @@ import CareerChart from '../components/CareerChart'
 import RecommendationsPanel from '../components/RecommendationsPanel'
 import AIWritingCard from '../components/AIWritingCard'
 import { tierChip, tierLabel } from '../lib/format'
-import { exportJson, exportMarkdown, printReport } from '../lib/report'
+import { exportJson, exportMarkdown, exportPdf, printReport } from '../lib/report'
 
 export default function DashboardPage() {
   const navigate = useNavigate()
   const { state } = useLocation() as { state: { result?: AnalysisResponse } | null }
   const result = state?.result
+  const [pdfLoading, setPdfLoading] = useState(false)
+  const [pdfError, setPdfError] = useState<string | null>(null)
+
+  async function handlePdf() {
+    if (!result) return
+    setPdfError(null)
+    setPdfLoading(true)
+    try {
+      await exportPdf(result)
+    } catch (err) {
+      setPdfError(apiErrorMessage(err))
+    } finally {
+      setPdfLoading(false)
+    }
+  }
 
   if (!result) {
     return (
@@ -33,6 +50,8 @@ export default function DashboardPage() {
     { icon: ClipboardCheck, title: 'Profile Completeness', score: scores.completeness },
     { icon: Cpu, title: 'Technical Strength', score: scores.technical },
     { icon: UserSearch, title: 'Recruiter Appeal', score: scores.recruiter },
+    { icon: ScanSearch, title: 'ATS Score', score: scores.ats },
+    { icon: Crown, title: 'Leadership', score: scores.leadership },
     { icon: Users, title: 'Networking', score: scores.networking },
     { icon: Briefcase, title: 'Career Readiness', score: scores.career_readiness },
   ]
@@ -55,7 +74,18 @@ export default function DashboardPage() {
               <BadgeCheck className="h-3.5 w-3.5 text-brand-300" /> ML-calibrated score
             </span>
           )}
-          <div className="no-print flex flex-wrap gap-2">
+          <div className="no-print flex flex-wrap items-center gap-2">
+            <button
+              onClick={handlePdf}
+              disabled={pdfLoading}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-brand-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-brand-500 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {pdfLoading ? (
+                <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Generating…</>
+              ) : (
+                <><FileText className="h-3.5 w-3.5" /> Download PDF</>
+              )}
+            </button>
             <button
               onClick={() => exportMarkdown(result)}
               className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-slate-200 hover:bg-white/10"
@@ -75,6 +105,7 @@ export default function DashboardPage() {
               <Printer className="h-3.5 w-3.5" /> Print / PDF
             </button>
           </div>
+          {pdfError && <p className="no-print text-xs text-rose-400">{pdfError}</p>}
         </div>
       </div>
 
@@ -104,7 +135,7 @@ export default function DashboardPage() {
       </section>
 
       {/* Metric cards */}
-      <section className="mt-6 grid gap-5 sm:grid-cols-2 xl:grid-cols-5">
+      <section className="mt-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {cards.map((c, i) => (
           <ScoreCard key={c.title} icon={c.icon} title={c.title} score={c.score} delay={i * 80} />
         ))}

@@ -14,6 +14,8 @@ export default function ScoreRadar({ scores }: { scores: Scores }) {
     { metric: 'Recruiter', value: scores.recruiter },
     { metric: 'Networking', value: scores.networking },
     { metric: 'Readiness', value: scores.career_readiness },
+    { metric: 'ATS', value: scores.ats },
+    { metric: 'Leadership', value: scores.leadership },
   ]
 
   return (

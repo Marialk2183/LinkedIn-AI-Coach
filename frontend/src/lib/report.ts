@@ -1,8 +1,9 @@
+import api from '../api/client'
 import type { AnalysisResponse } from '../types/analysis'
 
-/** Trigger a client-side file download from a string. */
-function download(filename: string, content: string, mime: string) {
-  const blob = new Blob([content], { type: mime })
+/** Trigger a client-side file download from a string or Blob. */
+function download(filename: string, content: string | Blob, mime: string) {
+  const blob = content instanceof Blob ? content : new Blob([content], { type: mime })
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
@@ -40,6 +41,8 @@ export function buildMarkdown(result: AnalysisResponse): string {
   lines.push(`| Completeness | ${scores.completeness} |`)
   lines.push(`| Technical Strength | ${scores.technical} |`)
   lines.push(`| Recruiter Appeal | ${scores.recruiter} |`)
+  lines.push(`| ATS Score | ${scores.ats} |`)
+  lines.push(`| Leadership | ${scores.leadership} |`)
   lines.push(`| Networking | ${scores.networking} |`)
   lines.push(`| Career Readiness | ${scores.career_readiness} |`)
   lines.push('')
@@ -94,6 +97,17 @@ export function buildMarkdown(result: AnalysisResponse): string {
 
 export function exportMarkdown(result: AnalysisResponse) {
   download(`${slug(result)}-report.md`, buildMarkdown(result), 'text/markdown')
+}
+
+/**
+ * Download a server-generated, recruiter-style PDF report.
+ *
+ * Posts the in-memory result (full fidelity — preserves impact points and
+ * worked examples that aren't all persisted) and saves the returned PDF.
+ */
+export async function exportPdf(result: AnalysisResponse) {
+  const { data } = await api.post<Blob>('/report/pdf', result, { responseType: 'blob' })
+  download(`${slug(result)}-report.pdf`, data, 'application/pdf')
 }
 
 /** Open the browser print dialog (user can Save as PDF). */

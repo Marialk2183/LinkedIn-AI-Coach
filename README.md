@@ -1,7 +1,7 @@
 # LinkedIn AI Coach
 
 **Grammarly for your LinkedIn profile.** Paste your profile text and get a
-6-dimensional score, ML-calibrated overall rating, career-match prediction, an
+multi-dimensional score, ML-calibrated overall rating, career-match prediction, an
 AI writing assistant (Gemini), and prioritized recommendations.
 
 > Not affiliated with LinkedIn. **No scraping** — analysis runs on text you paste.
@@ -13,20 +13,28 @@ AI writing assistant (Gemini), and prioritized recommendations.
 
 ## Features
 
-- **Six scores**: Overall · Completeness · Technical Strength · Recruiter Appeal · Networking · Career Readiness
+- **Eight scores** (each deterministic, with its formula + factor breakdown shown): Overall ·
+  Completeness · Technical Strength · Recruiter Appeal · **ATS Score** · **Leadership** · Networking ·
+  Career Readiness. ATS and Leadership are transparent lenses over the same signals; `overall` keeps
+  its calibrated rule+ML blend.
 - **ML overall score** — `RandomForestRegressor` over **16 engineered features**, trained to a
   defensible rubric (LinkedIn All-Star + recruiter heuristics) and blended 50/50 with rule-based
   signals. Calibrated to recruiter-realistic bands (CV R² ≈ 0.98). See `backend/ml/MODEL_CARD.md`.
 - **Career prediction** — % match for Data Scientist, Data Analyst, AI Engineer, Software Developer, Business Analyst, ML Engineer
-- **Three input modes** — paste text, enter a URL (+ pasted content), or **upload a file**:
+- **Four input modes** — paste text; **import from a compliant URL** (GitHub via the official
+  API, a portfolio site, or a job posting — never LinkedIn); or **upload a file**:
   a PDF resume / "Save to PDF", a `.txt`, or your **LinkedIn data-export `.zip`** (Settings →
   Get a copy of your data). The zip's CSVs are rebuilt into sectioned text and flow through the
-  same pipeline. Endpoint: `POST /api/v1/analyze/upload`.
-- **AI writing assistant** — improved headline + About section via Gemini (deterministic fallback when no key)
+  same pipeline. Endpoints: `POST /api/v1/analyze/upload`, `POST /api/v1/fetch`.
+- **AI writing assistant** — improved headline + About section via a pluggable provider:
+  **Gemini** (default) or **Azure OpenAI** (`AI_PROVIDER`), with a deterministic template
+  fallback when neither is configured
 - **Impact-prioritized recommendations** — strengths, weaknesses, and fixes ranked by their
   estimated effect on your overall score (e.g. "Expand your About → ~+12 pts"), each with a
   concrete, copy-pasteable **worked example** (rewritten headline, quantified bullet, named certs)
-- **Export your report** — download the dashboard as **Markdown** or **JSON**, or **Print / Save as PDF**
+- **Export your report** — download a **server-generated recruiter-style PDF** (ReportLab:
+  executive summary, score breakdown *with formulas*, dimension & career charts, ATS readiness,
+  skill-gap, learning roadmap, recruiter feedback), or export **Markdown** / **JSON**, or **Print**
 - **Dashboard** — score cards, radar chart, career bar chart, recommendation panels
 
 ## Quick start
@@ -89,6 +97,21 @@ and add that frontend origin to `CORS_ORIGINS` on the backend.
 > Note: the default DB is SQLite (file-based) — fine for a demo, but on hosts with an
 > ephemeral filesystem the data resets on restart. Point `DATABASE_URL` at Postgres to persist.
 
+### Cloud providers (abstraction-first, local fallback)
+
+Every external dependency runs locally by default and "lights up" on Azure when the
+matching env vars are set — no code change, no Azure account required for local dev:
+
+| Capability | Local default | Azure (env-selected) | Switch |
+| --- | --- | --- | --- |
+| AI text generation | Gemini / deterministic templates | **Azure OpenAI** (REST, no extra SDK) | `AI_PROVIDER=azure` + `AZURE_OPENAI_*` |
+| Report storage | local filesystem (`var/artifacts`) | **Azure Blob Storage** | `AZURE_BLOB_CONNECTION_STRING` (+ `pip install azure-storage-blob`) |
+| Database | SQLite | Azure Database for PostgreSQL | `DATABASE_URL=postgresql+psycopg://…` |
+
+`GET /health` reports the live `ai_provider` and `artifact_store`. Providers live behind
+small interfaces (`services/ai_providers.py`, `services/storage.py`) so a different backend
+slots in without touching routes or business logic.
+
 ## Architecture
 
 Clean, layered, dependency-injected. The dependency rule points inward:
@@ -103,8 +126,10 @@ backend/
 ├── models/                 # orm.py · schemas.py (Pydantic) · domain.py (dataclasses)
 ├── utils/                  # parser.py · text.py · constants.py (skills/roles)
 ├── ml/                     # features · train · predictor · model.pkl
-├── services/               # scoring · recommendation · career · ai · analysis
-└── routes/                 # health · analyze · assistant · career · deps
+├── services/               # scoring · recommendation · career · analysis · report
+│                           # ai_service + ai_providers (Gemini | Azure OpenAI)
+│                           # scrape_service (compliant fetch) · storage (local | Azure Blob)
+└── routes/                 # health · analyze · assistant · career · sources · deps
 
 frontend/
 └── src/
@@ -120,6 +145,10 @@ frontend/
 | Method | Path | Purpose |
 |---|---|---|
 | `POST` | `/analyze` | Full pipeline → dashboard payload |
+| `POST` | `/analyze/upload` | Analyze an uploaded PDF / `.txt` / LinkedIn export `.zip` |
+| `POST` | `/fetch` | Import profile text from a **compliant** source — GitHub (official API), a portfolio site, or a job posting (no LinkedIn) |
+| `POST` | `/report/pdf` | Recruiter-style PDF from an analysis result (full fidelity) |
+| `GET` | `/analyses/{id}/report.pdf` | Recruiter-style PDF for a stored analysis (cached in the artifact store) |
 | `GET` | `/analyses/{id}` | Fetch stored analysis |
 | `GET` | `/analyses` | History |
 | `POST` | `/assistant/headline` | Improved headline |

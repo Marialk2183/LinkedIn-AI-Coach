@@ -30,6 +30,10 @@ def test_analyze_full_payload(client):
     d = r.json()
     assert d["ml_used"] is True
     assert d["scores"]["overall"] >= 70
+    # ATS + Leadership dimensions present, bounded, and explained in the breakdown.
+    for dim in ("ats", "leadership"):
+        assert 0 <= d["scores"][dim] <= 100
+        assert d["breakdown"][dim]["components"]
     assert d["career_predictions"]
     assert d["recommendations"]
     assert d["analysis_id"] is not None
@@ -85,6 +89,29 @@ def test_upload_rejects_garbage(client):
         files={"file": ("x.png", b"\x89PNG\r\n\x1a\n" + b"\x00" * 40, "image/png")},
     )
     assert r.status_code == 422
+
+
+def test_report_pdf_from_result(client):
+    result = client.post(
+        "/api/v1/analyze",
+        json={"source_type": "text", "profile_text": ARCHETYPES["strong"]},
+    ).json()
+    r = client.post("/api/v1/report/pdf", json=result)
+    assert r.status_code == 200
+    assert r.headers["content-type"] == "application/pdf"
+    assert r.content[:4] == b"%PDF"
+    assert "attachment" in r.headers.get("content-disposition", "")
+
+
+def test_report_pdf_by_id(client):
+    result = client.post(
+        "/api/v1/analyze",
+        json={"source_type": "text", "profile_text": ARCHETYPES["average"]},
+    ).json()
+    r = client.get(f"/api/v1/analyses/{result['analysis_id']}/report.pdf")
+    assert r.status_code == 200
+    assert r.content[:4] == b"%PDF"
+    assert client.get("/api/v1/analyses/999999/report.pdf").status_code == 404
 
 
 def test_career_and_assistant_endpoints(client):

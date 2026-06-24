@@ -41,6 +41,18 @@ class CareerPredictRequest(BaseModel):
     profile_text: str = Field(..., description="Pasted profile content.")
 
 
+FetchKind = Literal["github", "web"]
+
+
+class FetchRequest(BaseModel):
+    """Pull text from a compliant public source (never LinkedIn)."""
+
+    url: str = Field(..., examples=["https://github.com/torvalds"])
+    kind: FetchKind | None = Field(
+        default=None, description="Force a source kind; otherwise auto-detected."
+    )
+
+
 # ----------------------------- responses -----------------------------
 class MetricBreakdown(BaseModel):
     score: int
@@ -54,6 +66,8 @@ class ScoresSchema(BaseModel):
     recruiter: int
     networking: int
     career_readiness: int
+    ats: int = 0
+    leadership: int = 0
 
 
 class RecommendationSchema(BaseModel):
@@ -111,10 +125,23 @@ class AboutResponse(BaseModel):
     ai_generated: bool = False
 
 
+class FetchResponse(BaseModel):
+    """Normalized text from a compliant source, ready to paste into /analyze."""
+
+    url: str
+    kind: FetchKind
+    title: str
+    text: str
+    char_count: int
+    metadata: dict[str, str | int | float] = Field(default_factory=dict)
+
+
 class HealthResponse(BaseModel):
     status: str
     version: str
     ai_enabled: bool
+    ai_provider: str = "fallback"  # gemini | azure | fallback
+    artifact_store: str = "local"  # local | azure_blob
     ml_loaded: bool
     model_version: int | None = None
     model_metrics: dict[str, float] = Field(default_factory=dict)

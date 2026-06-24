@@ -20,6 +20,30 @@ SOFT_SKILLS: set[str] = {
 
 ALL_SKILLS: set[str] = TECHNICAL_SKILLS | SOFT_SKILLS
 
+# Soft skills that specifically signal people/leadership ability (subset of
+# SOFT_SKILLS) — used by the Leadership score.
+LEADERSHIP_SKILLS: set[str] = {
+    "leadership", "mentoring", "project management", "stakeholder management",
+}
+
+# Words/phrases in a headline or experience that signal seniority/ownership.
+SENIORITY_KEYWORDS: set[str] = {
+    "senior", "lead", "principal", "staff", "head", "director", "vp",
+    "chief", "manager", "founder", "architect", "team lead", "tech lead",
+    "head of",
+}
+
+# Leadership/ownership language a Leadership score rewards in achievement text
+# (verbs of leading, mentoring, and driving outcomes — distinct from generic
+# action verbs). Single words match on word boundaries; phrases as substrings.
+LEADERSHIP_TERMS: set[str] = {
+    "led", "lead", "leads", "leading", "managed", "managing", "manager",
+    "mentored", "mentoring", "mentor", "spearheaded", "supervised", "oversaw",
+    "directed", "director", "orchestrated", "founded", "founder", "established",
+    "drove", "scaled", "owned", "coordinated", "headed", "championed",
+    "architected", "principal", "team lead", "head of",
+}
+
 # Roles for the career-prediction module. Weighted core + nice-to-have skills.
 ROLE_DEFINITIONS: dict[str, dict[str, list[str]]] = {
     "Data Scientist": {

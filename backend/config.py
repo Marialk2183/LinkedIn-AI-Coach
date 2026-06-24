@@ -20,9 +20,38 @@ class Settings(BaseSettings):
     api_prefix: str = "/api/v1"
     debug: bool = False
 
+    # AI provider selection: "auto" (Azure if configured, else Gemini), "gemini",
+    # or "azure". Gemini stays the default and the universal fallback.
+    ai_provider: str = Field(default="auto", alias="AI_PROVIDER")
+
     # AI (Gemini)
     gemini_api_key: str | None = Field(default=None, alias="GEMINI_API_KEY")
     gemini_model: str = Field(default="gemini-flash-latest", alias="GEMINI_MODEL")
+
+    # AI (Azure OpenAI) — lights up only when endpoint + key + deployment are set.
+    azure_openai_endpoint: str | None = Field(
+        default=None, alias="AZURE_OPENAI_ENDPOINT"
+    )
+    azure_openai_api_key: str | None = Field(
+        default=None, alias="AZURE_OPENAI_API_KEY"
+    )
+    azure_openai_deployment: str | None = Field(
+        default=None, alias="AZURE_OPENAI_DEPLOYMENT"
+    )
+    azure_openai_api_version: str = Field(
+        default="2024-10-21", alias="AZURE_OPENAI_API_VERSION"
+    )
+
+    # Artifact storage (generated PDF reports): "auto" (Azure Blob if configured,
+    # else local filesystem), "local", or "azure_blob".
+    artifact_store: str = Field(default="auto", alias="ARTIFACT_STORE")
+    artifacts_dir: str = Field(default="var/artifacts", alias="ARTIFACTS_DIR")
+    azure_blob_connection_string: str | None = Field(
+        default=None, alias="AZURE_BLOB_CONNECTION_STRING"
+    )
+    azure_blob_container: str = Field(
+        default="reports", alias="AZURE_BLOB_CONTAINER"
+    )
 
     # Database
     database_url: str = Field(
@@ -31,6 +60,15 @@ class Settings(BaseSettings):
 
     # ML
     ml_model_path: str = Field(default="ml/model.pkl", alias="ML_MODEL_PATH")
+
+    # Compliant source fetching (GitHub API, portfolio sites, job postings).
+    # No LinkedIn scraping — that path stays on the export-.zip / PDF upload.
+    github_token: str | None = Field(default=None, alias="GITHUB_TOKEN")
+    fetch_timeout_seconds: float = Field(default=10.0, alias="FETCH_TIMEOUT_SECONDS")
+    fetch_max_bytes: int = Field(default=3 * 1024 * 1024, alias="FETCH_MAX_BYTES")
+    fetch_user_agent: str = Field(
+        default="LinkedInAICoach/1.0 (+compliant-fetch)", alias="FETCH_USER_AGENT"
+    )
 
     # CORS — NoDecode so a comma-separated env value isn't JSON-parsed; the
     # validator below splits it into a list.
@@ -47,12 +85,33 @@ class Settings(BaseSettings):
         return v
 
     @property
-    def ai_enabled(self) -> bool:
+    def gemini_enabled(self) -> bool:
         return bool(self.gemini_api_key)
+
+    @property
+    def azure_openai_enabled(self) -> bool:
+        return bool(
+            self.azure_openai_endpoint
+            and self.azure_openai_api_key
+            and self.azure_openai_deployment
+        )
+
+    @property
+    def ai_enabled(self) -> bool:
+        return self.gemini_enabled or self.azure_openai_enabled
+
+    @property
+    def azure_blob_enabled(self) -> bool:
+        return bool(self.azure_blob_connection_string)
 
     @property
     def model_abs_path(self) -> Path:
         p = Path(self.ml_model_path)
+        return p if p.is_absolute() else BASE_DIR / p
+
+    @property
+    def artifacts_abs_dir(self) -> Path:
+        p = Path(self.artifacts_dir)
         return p if p.is_absolute() else BASE_DIR / p
 
 

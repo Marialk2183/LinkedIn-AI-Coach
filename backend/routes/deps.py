@@ -9,6 +9,8 @@ from services.analysis_service import AnalysisService
 from services.career_service import CareerService
 from services.recommendation_service import RecommendationService
 from services.scoring_service import ScoringService
+from services.scrape_service import ScrapeService
+from services.storage import ArtifactStore, build_store
 
 
 @lru_cache
@@ -24,6 +26,16 @@ def _career_service() -> CareerService:
 @lru_cache
 def _scoring_service() -> ScoringService:
     return ScoringService(predictor=get_predictor())
+
+
+@lru_cache
+def _scrape_service() -> ScrapeService:
+    return ScrapeService(get_settings())
+
+
+@lru_cache
+def _artifact_store() -> ArtifactStore:
+    return build_store(get_settings())
 
 
 @lru_cache
@@ -47,6 +59,14 @@ def get_career_service() -> CareerService:
 
 def get_analysis_service() -> AnalysisService:
     return _analysis_service()
+
+
+def get_scrape_service() -> ScrapeService:
+    return _scrape_service()
+
+
+def get_artifact_store() -> ArtifactStore:
+    return _artifact_store()
 
 
 def settings_dep() -> Settings:

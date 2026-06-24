@@ -1,8 +1,8 @@
 import { useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { FileText, Link2, Upload, AlertCircle, Sparkles, FileCheck2, X } from 'lucide-react'
+import { FileText, Link2, Upload, AlertCircle, Sparkles, FileCheck2, X, Download } from 'lucide-react'
 import Loader from '../components/Loader'
-import { analyzeProfile, uploadProfile, apiErrorMessage } from '../api/client'
+import { analyzeProfile, uploadProfile, fetchSource, apiErrorMessage } from '../api/client'
 import type { SourceType } from '../types/analysis'
 
 type Tab = SourceType
@@ -34,9 +34,31 @@ export default function AnalyzePage() {
   const [file, setFile] = useState<File | null>(null)
   const [dragging, setDragging] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [importing, setImporting] = useState(false)
+  const [imported, setImported] = useState('')
   const [error, setError] = useState('')
   const fileInput = useRef<HTMLInputElement>(null)
   const navigate = useNavigate()
+
+  async function importFromUrl() {
+    setError('')
+    setImported('')
+    if (!url.trim()) {
+      setError('Enter a GitHub, portfolio, or job-posting URL to import.')
+      return
+    }
+    setImporting(true)
+    try {
+      const src = await fetchSource(url.trim())
+      setText(src.text)
+      setTab('text')
+      setImported(`Imported ${src.char_count.toLocaleString()} characters from ${src.title}. Review and edit below, then analyze.`)
+    } catch (e) {
+      setError(apiErrorMessage(e))
+    } finally {
+      setImporting(false)
+    }
+  }
 
   function pickFile(f: File | null) {
     setError('')
@@ -54,10 +76,6 @@ export default function AnalyzePage() {
       setError('Paste your LinkedIn profile content to analyze.')
       return
     }
-    if (tab === 'url' && !url.trim()) {
-      setError('Enter a profile URL — then paste its content below.')
-      return
-    }
     if (tab === 'export' && !file) {
       setError('Choose a PDF, .txt, or LinkedIn data-export .zip to upload.')
       return
@@ -67,11 +85,7 @@ export default function AnalyzePage() {
       const result =
         tab === 'export' && file
           ? await uploadProfile(file)
-          : await analyzeProfile({
-              source_type: tab === 'url' ? 'url' : 'text',
-              profile_url: url || undefined,
-              profile_text: text || undefined,
-            })
+          : await analyzeProfile({ source_type: 'text', profile_text: text || undefined })
       navigate('/dashboard', { state: { result } })
     } catch (e) {
       setError(apiErrorMessage(e))
@@ -83,7 +97,7 @@ export default function AnalyzePage() {
 
   const tabs: { id: Tab; label: string; icon: typeof FileText }[] = [
     { id: 'text', label: 'Paste Text', icon: FileText },
-    { id: 'url', label: 'Profile URL', icon: Link2 },
+    { id: 'url', label: 'Import from URL', icon: Link2 },
     { id: 'export', label: 'Upload File', icon: Upload },
   ]
 
@@ -94,7 +108,7 @@ export default function AnalyzePage() {
           Analyze your <span className="gradient-text">profile</span>
         </h1>
         <p className="mx-auto mt-3 max-w-xl text-slate-400">
-          Paste your content, or upload a PDF / LinkedIn data export. We never store credentials and don't scrape LinkedIn.
+          Paste your content, import from GitHub / a portfolio / a job post, or upload a PDF or LinkedIn data export. We never store credentials and don't scrape LinkedIn.
         </p>
       </div>
 
@@ -120,17 +134,29 @@ export default function AnalyzePage() {
 
       <div className="mt-5 card">
         {tab === 'url' && (
-          <>
-            <input
-              value={url}
-              onChange={(e) => setUrl(e.target.value)}
-              placeholder="https://linkedin.com/in/your-name"
-              className="mb-4 w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder:text-slate-500 focus:border-brand-500/50 focus:outline-none"
-            />
-            <p className="mb-3 text-xs text-amber-300/80">
-              LinkedIn blocks scraping, so paste your profile content below too — the URL is stored for reference.
+          <div>
+            <div className="flex gap-2">
+              <input
+                value={url}
+                onChange={(e) => setUrl(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && importFromUrl()}
+                placeholder="https://github.com/your-name  ·  your-portfolio.com  ·  a job posting"
+                className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder:text-slate-500 focus:border-brand-500/50 focus:outline-none"
+              />
+              <button
+                onClick={importFromUrl}
+                disabled={importing}
+                className="btn-primary shrink-0 disabled:opacity-60"
+              >
+                <Download className="h-4 w-4" /> {importing ? 'Importing…' : 'Import'}
+              </button>
+            </div>
+            <p className="mt-3 text-xs text-slate-400">
+              Pulls public text from <span className="text-slate-200">GitHub</span> (official API),
+              a portfolio site, or a job posting into the editor. We never scrape LinkedIn — for
+              that, use <button onClick={() => setTab('export')} className="text-brand-300 hover:text-brand-200">Upload File</button>.
             </p>
-          </>
+          </div>
         )}
 
         {tab === 'export' ? (
@@ -190,8 +216,13 @@ export default function AnalyzePage() {
               “Save to PDF” from your profile’s More menu.
             </p>
           </div>
-        ) : (
+        ) : tab === 'text' ? (
           <>
+            {imported && (
+              <p className="mb-3 flex items-start gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-200">
+                <FileCheck2 className="mt-0.5 h-4 w-4 shrink-0" /> {imported}
+              </p>
+            )}
             <textarea
               value={text}
               onChange={(e) => setText(e.target.value)}
@@ -205,13 +236,15 @@ export default function AnalyzePage() {
               </button>
             </div>
           </>
-        )}
+        ) : null}
 
-        <div className="mt-4 flex justify-end">
-          <button onClick={submit} className="btn-primary">
-            <Sparkles className="h-4 w-4" /> Analyze Profile
-          </button>
-        </div>
+        {tab !== 'url' && (
+          <div className="mt-4 flex justify-end">
+            <button onClick={submit} className="btn-primary">
+              <Sparkles className="h-4 w-4" /> Analyze Profile
+            </button>
+          </div>
+        )}
         {error && (
           <p className="mt-4 flex items-center gap-2 text-sm text-rose-400">
             <AlertCircle className="h-4 w-4 shrink-0" /> {error}

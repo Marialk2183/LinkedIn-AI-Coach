@@ -1,5 +1,5 @@
 import axios from 'axios'
-import type { AnalysisResponse, AnalyzeRequest } from '../types/analysis'
+import type { AnalysisResponse, AnalyzeRequest, FetchResponse } from '../types/analysis'
 
 const baseURL = import.meta.env.VITE_API_BASE ?? 'http://localhost:8000/api/v1'
 
@@ -29,6 +29,15 @@ export async function uploadProfile(file: File): Promise<AnalysisResponse> {
   const { data } = await api.post<AnalysisResponse>('/analyze/upload', form, {
     headers: { 'Content-Type': 'multipart/form-data' },
   })
+  return data
+}
+
+/**
+ * Pull profile-style text from a compliant public source (GitHub, a portfolio
+ * site, or a job posting). LinkedIn is refused server-side — paste/upload that.
+ */
+export async function fetchSource(url: string): Promise<FetchResponse> {
+  const { data } = await api.post<FetchResponse>('/fetch', { url })
   return data
 }
 

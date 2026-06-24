@@ -1,8 +1,11 @@
-"""Phase 3 — AI writing assistant via Gemini, with a heuristic fallback.
+"""AI writing assistant, with a deterministic heuristic fallback.
 
-Gemini is wrapped behind this single interface. If no API key is configured (or
-a call fails), every method degrades to a deterministic template so endpoints
-never hard-fail. Swap the provider here without touching routes/services.
+This service owns all the *prompt* logic. The actual text generation is
+delegated to a pluggable :class:`~services.ai_providers.TextProvider` — Gemini
+(default) or Azure OpenAI, selected by ``AI_PROVIDER`` (see
+:func:`services.ai_providers.build_provider`). If no provider is configured, or
+any call fails/returns nothing, every method degrades to a deterministic
+template so endpoints never hard-fail. Routes/services are unchanged.
 """
 
 from __future__ import annotations
@@ -11,39 +14,31 @@ import logging
 
 from config import Settings
 from models.domain import ParsedProfile
+from services.ai_providers import TextProvider, build_provider
 
 logger = logging.getLogger(__name__)
 
 
 class AIService:
-    def __init__(self, settings: Settings) -> None:
+    def __init__(
+        self, settings: Settings, *, provider: TextProvider | None = None
+    ) -> None:
         self._settings = settings
-        self._model = None
-        if settings.ai_enabled:
-            try:
-                import google.generativeai as genai
-
-                genai.configure(api_key=settings.gemini_api_key)
-                self._model = genai.GenerativeModel(settings.gemini_model)
-                logger.info("Gemini initialized (%s)", settings.gemini_model)
-            except Exception:  # noqa: BLE001
-                logger.exception("Gemini init failed; using fallback writer.")
-                self._model = None
+        # Allow an injected provider (tests); otherwise pick from config.
+        self._provider = provider if provider is not None else build_provider(settings)
 
     @property
     def enabled(self) -> bool:
-        return self._model is not None
+        return self._provider is not None
+
+    @property
+    def provider_name(self) -> str:
+        return self._provider.name if self._provider is not None else "fallback"
 
     def _generate(self, prompt: str) -> str | None:
-        if self._model is None:
+        if self._provider is None:
             return None
-        try:
-            resp = self._model.generate_content(prompt)
-            text = (getattr(resp, "text", "") or "").strip()
-            return text or None
-        except Exception:  # noqa: BLE001
-            logger.exception("Gemini generation failed; using fallback.")
-            return None
+        return self._provider.generate(prompt)
 
     # ------------------------------- headline ------------------------------- #
     def improve_headline(

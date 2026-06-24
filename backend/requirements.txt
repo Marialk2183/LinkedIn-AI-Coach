@@ -9,8 +9,15 @@ joblib==1.4.2
 google-generativeai==0.8.3
 python-multipart==0.0.20
 pypdf==5.1.0
+reportlab==4.2.5
 
+# httpx powers compliant /fetch (GitHub API + web) and the Azure OpenAI REST
+# provider. Azure OpenAI needs no extra SDK (called over REST).
 httpx==0.28.1
+
+# Optional: only needed when ARTIFACT_STORE / AZURE_BLOB_CONNECTION_STRING point
+# at Azure Blob (imported lazily; local filesystem store is the default).
+# azure-storage-blob==12.24.0
 
 # dev / test
 pytest==8.3.4

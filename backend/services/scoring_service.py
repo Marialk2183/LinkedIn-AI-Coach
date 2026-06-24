@@ -10,7 +10,14 @@ from __future__ import annotations
 from ml.features import extract_features
 from ml.predictor import ProfileScorePredictor
 from models.domain import ParsedProfile, ScoreResult
-from utils.constants import TECHNICAL_SKILLS
+from utils import text as T
+from utils.constants import (
+    LEADERSHIP_SKILLS,
+    LEADERSHIP_TERMS,
+    ROLE_KEYWORDS,
+    SENIORITY_KEYWORDS,
+    TECHNICAL_SKILLS,
+)
 
 
 def _clamp(v: float) -> int:
@@ -32,7 +39,11 @@ class ScoringService:
         recruiter, r_comp = self._recruiter(p)
         networking, n_comp = self._networking(p)
         readiness, ready_comp = self._career_readiness(p, technical, completeness)
+        ats, ats_comp = self._ats(p, completeness)
+        leadership, lead_comp = self._leadership(p)
 
+        # Overall keeps its original 5-dimension rule blend (and ML blend) so the
+        # calibrated bands stay stable; ATS/Leadership are reported, not folded in.
         rule_overall = (
             completeness * 0.20
             + technical * 0.25
@@ -55,6 +66,8 @@ class ScoringService:
             "recruiter": {"score": recruiter, **r_comp},
             "networking": {"score": networking, **n_comp},
             "career_readiness": {"score": readiness, **ready_comp},
+            "ats": {"score": ats, **ats_comp},
+            "leadership": {"score": leadership, **lead_comp},
         }
         return ScoreResult(
             overall=_clamp(overall),
@@ -63,6 +76,8 @@ class ScoringService:
             recruiter=recruiter,
             networking=networking,
             career_readiness=readiness,
+            ats=ats,
+            leadership=leadership,
             breakdown=breakdown,
             ml_used=ml_used,
         )
@@ -141,5 +156,47 @@ class ScoringService:
             "profile_completeness": float(completeness),
         }
         weights = {"technical_depth": 0.35, "experience": 0.25, "credentials": 0.20, "profile_completeness": 0.20}
+        score = sum(comp[k] * weights[k] for k in comp)
+        return _clamp(score), comp
+
+    def _ats(self, p: ParsedProfile, completeness: int) -> tuple[int, dict]:
+        """Applicant-Tracking-System readiness: parseable structure + keywords.
+
+        An ATS ranks profiles on recognizable sections and role-relevant
+        keywords, so this rewards a complete structure, breadth of searchable
+        skills, a role-keyworded headline, and quantified, parseable impact.
+        """
+        achievement_text = " ".join([p.about, *p.experiences, *p.projects])
+        role_kw = 100.0 if T.count_keyword_hits(p.headline, ROLE_KEYWORDS) else 0.0
+        comp = {
+            "section_structure": float(completeness),
+            "keyword_coverage": _ratio(p.skills_count, 12),
+            "technical_keywords": _ratio(len(p.technical_skills), 8),
+            "headline_role_keyword": role_kw,
+            "quantified_impact": _ratio(T.count_quantified_metrics(achievement_text), 4),
+        }
+        weights = {
+            "section_structure": 0.30, "keyword_coverage": 0.25,
+            "technical_keywords": 0.20, "headline_role_keyword": 0.15,
+            "quantified_impact": 0.10,
+        }
+        score = sum(comp[k] * weights[k] for k in comp)
+        return _clamp(score), comp
+
+    def _leadership(self, p: ParsedProfile) -> tuple[int, dict]:
+        """Leadership/seniority signal from tenure, language, title, and skills."""
+        text = " ".join([p.headline, p.about, *p.experiences, *p.projects])
+        owned = {s.lower() for s in p.skills}
+        seniority = 100.0 if T.count_keyword_hits(p.headline, SENIORITY_KEYWORDS) else 0.0
+        comp = {
+            "experience_seniority": _ratio(p.experience_years, 8),
+            "leadership_language": _ratio(T.count_keyword_hits(text, LEADERSHIP_TERMS), 4),
+            "seniority_title": seniority,
+            "leadership_skills": _ratio(len(owned & LEADERSHIP_SKILLS), 2),
+        }
+        weights = {
+            "experience_seniority": 0.35, "leadership_language": 0.30,
+            "seniority_title": 0.20, "leadership_skills": 0.15,
+        }
         score = sum(comp[k] * weights[k] for k in comp)
         return _clamp(score), comp

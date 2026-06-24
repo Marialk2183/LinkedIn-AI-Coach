@@ -5,7 +5,7 @@ from services.scoring_service import ScoringService
 
 TIERS = ["empty", "weak", "average", "strong", "elite"]
 DIMENSIONS = ["overall", "completeness", "technical", "recruiter",
-              "networking", "career_readiness"]
+              "networking", "career_readiness", "ats", "leadership"]
 
 
 def _scores_by_tier():
